@@ -24,7 +24,7 @@ description:
 options:
   command:
     description:
-      - Specifies the action to take.  
+      - Specifies the action to take.
     required: true
     default: null
     aliases: []
@@ -43,7 +43,7 @@ options:
     aliases: []
   ttl:
     description:
-      - The TTL to give the new record
+      - The TTL to give the new record.
     required: false
     default: 3600 (one hour)
     aliases: []
@@ -62,13 +62,13 @@ options:
     aliases: []
   aws_secret_key:
     description:
-      - AWS secret key. 
+      - AWS secret key.
     required: false
     default: null
     aliases: ['ec2_secret_key', 'secret_key']
   aws_access_key:
     description:
-      - AWS access key. 
+      - AWS access key.
     required: false
     default: null
     aliases: ['ec2_access_key', 'access_key']
@@ -135,8 +135,6 @@ EXAMPLES = '''
       type: "TXT"
       ttl: "7200"
       value: '"bar"'
-
-
 '''
 
 import sys
@@ -172,7 +170,7 @@ def main():
             record          = dict(required=True),
             ttl             = dict(required=False, default=3600),
             type            = dict(choices=['A', 'CNAME', 'MX', 'AAAA', 'TXT', 'PTR', 'SRV', 'SPF', 'NS'], required=True),
-            value           = dict(required=False), 
+            value           = dict(required=False),
             overwrite       = dict(required=False, type='bool'),
             retry_interval  = dict(required=False, default=500)
         )
@@ -207,7 +205,7 @@ def main():
         if not value_in:
             module.fail_json(msg = "parameter 'value' required for create/delete")
 
-    # connect to the route53 endpoint 
+    # connect to the route53 endpoint
     try:
         conn = boto.route53.connection.Route53Connection(aws_access_key, aws_secret_key)
     except boto.exception.BotoServerError, e:
@@ -226,7 +224,7 @@ def main():
         module.fail_json(msg = errmsg)
 
     record = {}
-    
+
     found_record = False
     sets = conn.get_all_rrsets(zones[zone_in])
     for rset in sets:
