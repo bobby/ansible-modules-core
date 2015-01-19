@@ -22,13 +22,13 @@ short_description: add or delete entries in Amazons Route53 DNS service
 description:
      - Creates and deletes DNS records in Amazons Route53 service
 options:
-  command:
+  state:
     description:
       - Specifies the action to take.
     required: true
     default: null
     aliases: []
-    choices: [ 'get', 'create', 'delete' ]
+    choices: [ 'list', 'present', 'absent' ]
   zone:
     description:
       - The DNS zone to modify
@@ -88,12 +88,10 @@ requirements: [ "boto" ]
 author: Bruce Pennypacker
 '''
 
-# FIXME: the command stuff should have a more state like configuration alias -- MPD
-
 EXAMPLES = '''
 # Add new.foo.com as an A record with 3 IPs
 - route53:
-      command: create
+      state: present
       zone: foo.com
       record: new.foo.com
       type: A
@@ -102,15 +100,15 @@ EXAMPLES = '''
 
 # Retrieve the details for new.foo.com
 - route53:
-      command: get
+      state: list
       zone: foo.com
       record: new.foo.com
       type: A
   register: rec
 
-# Delete new.foo.com A record using the results from the get command
+# Delete new.foo.com A record using the results from the list state
 - route53:
-      command: delete
+      state: absent
       zone: foo.com
       record: "{{ rec.set.record }}"
       type: "{{ rec.set.type }}"
@@ -119,7 +117,7 @@ EXAMPLES = '''
 # Add an AAAA record.  Note that because there are colons in the value
 # that the entire parameter list must be quoted:
 - route53:
-      command: "create"
+      state: "present"
       zone: "foo.com"
       record: "localhost.foo.com"
       type: "AAAA"
@@ -129,7 +127,7 @@ EXAMPLES = '''
 # Add a TXT record. Note that TXT and SPF records must be surrounded
 # by quotes when sent to Route 53:
 - route53:
-      command: "create"
+      state: "present"
       zone: "foo.com"
       record: "localhost.foo.com"
       type: "TXT"
@@ -165,7 +163,7 @@ def commit(changes, retry_interval):
 def main():
     argument_spec = ec2_argument_spec()
     argument_spec.update(dict(
-            command         = dict(choices=['get', 'create', 'delete'], required=True),
+            state           = dict(choices=['list', 'present', 'absent'], required=True),
             zone            = dict(required=True),
             record          = dict(required=True),
             ttl             = dict(required=False, default=3600),
@@ -177,7 +175,7 @@ def main():
     )
     module = AnsibleModule(argument_spec=argument_spec)
 
-    command_in            = module.params.get('command')
+    state_in              = module.params.get('state')
     zone_in               = module.params.get('zone')
     ttl_in                = module.params.get('ttl')
     record_in             = module.params.get('record')
@@ -201,9 +199,9 @@ def main():
     if record_in[-1:] != '.':
         record_in += "."
 
-    if command_in == 'create' or command_in == 'delete':
+    if state_in == 'present' or state_in == 'absent':
         if not value_in:
-            module.fail_json(msg = "parameter 'value' required for create/delete")
+            module.fail_json(msg = "parameter 'value' required for present/absent")
 
     # connect to the route53 endpoint
     try:
@@ -241,18 +239,18 @@ def main():
             record['ttl'] = rset.ttl
             record['value'] = ','.join(sorted(rset.resource_records))
             record['values'] = sorted(rset.resource_records)
-            if value_list == sorted(rset.resource_records) and int(record['ttl']) == ttl_in and command_in == 'create':
+            if value_list == sorted(rset.resource_records) and int(record['ttl']) == ttl_in and state_in == 'present':
                 module.exit_json(changed=False)
 
-    if command_in == 'get':
+    if state_in == 'list':
         module.exit_json(changed=False, set=record)
 
-    if command_in == 'delete' and not found_record:
+    if state_in == 'absent' and not found_record:
         module.exit_json(changed=False)
 
     changes = ResourceRecordSets(conn, zones[zone_in])
 
-    if command_in == 'create' and found_record:
+    if state_in == 'present' and found_record:
         if not module.params['overwrite']:
             module.fail_json(msg = "Record already exists with different value. Set 'overwrite' to replace it")
         else:
@@ -260,8 +258,8 @@ def main():
         for v in record['values']:
             change.add_value(v)
 
-    if command_in == 'create' or command_in == 'delete':
-        change = changes.add_change(command_in.upper(), record_in, type_in, ttl_in)
+    if state_in == 'present' or state_in == 'absent':
+        change = changes.add_change(state_in.upper(), record_in, type_in, ttl_in)
         for v in value_list:
             change.add_value(v)
 
